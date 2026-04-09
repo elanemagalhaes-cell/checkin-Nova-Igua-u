@@ -77,11 +77,16 @@ button{
 
 <script>
 
-// 🔥 SUA URL JÁ CONFIGURADA
-const API_BASE_URL = "https://script.google.com/a/macros/shopee.com/s/AKfycbynb3yJxQ7r9tmttiQqcfI3hUsoZHZP_Av6sItKPwLkk8if6PcRFF9OApljGNIvKmdi/exec";
+//////////////////////////////////////////////////////
+// 🔥 URL CORRETA (GOOGLEUSERCONTENT)
+//////////////////////////////////////////////////////
+const API_BASE_URL = "https://script.googleusercontent.com/a/macros/shopee.com/echo?user_content_key=AWDtjMWH21x2TqYA5VDaXlO8NZuN_qKJEMH-udS0gptGKGG1vg--mKw-KJq3UgE0xBvOGTj_JMotyAmPPXNRNYDJEgL7rETb0-Dh0kUfQr1yjse2ReiAo1W5JYxqIQDM8e9yTeApDX4WL2cSr7UbL7xsZPBd22LS_NSzIxYO--x6_LOsiUQ8ZPLMNZE0cJRVWsDxEA63R6H8rbRbp5Cbxq8eB_nJadnJ5jfMXZXk630xHcMMEAVjQ12GdMcjM5qDmqpQo8T-f3buel-FyyP5TFmF9o4p0hKWrah8pi_R5XqQ&lib=MiCWQ0ug8MyWhY52Ebfdc0sMngc_g7vfE";
 
 const $ = id => document.getElementById(id);
 
+//////////////////////////////////////////////////////
+// 🔑 DEVICE ID (FIXO NO CELULAR)
+//////////////////////////////////////////////////////
 function getDeviceId(){
   let v = localStorage.getItem("DEVICE_ID");
   if(!v){
@@ -91,20 +96,35 @@ function getDeviceId(){
   return v;
 }
 
+//////////////////////////////////////////////////////
+// 📍 GPS
+//////////////////////////////////////////////////////
 async function getGeo(){
   return new Promise(res=>{
+    if(!navigator.geolocation){
+      return res({lat:null,lng:null,accuracy:null});
+    }
+
     navigator.geolocation.getCurrentPosition(
       p=>res({
         lat:p.coords.latitude,
         lng:p.coords.longitude,
         accuracy:p.coords.accuracy
       }),
-      ()=>res({lat:null,lng:null,accuracy:null}),
-      {enableHighAccuracy:true}
+      err=>res({
+        lat:null,
+        lng:null,
+        accuracy:null,
+        erro: err.message
+      }),
+      {enableHighAccuracy:true,timeout:10000}
     );
   });
 }
 
+//////////////////////////////////////////////////////
+// 🚀 ENVIO PRINCIPAL
+//////////////////////////////////////////////////////
 async function sendCheckin(){
   const resp = $("resp");
   resp.className="resp";
@@ -131,29 +151,48 @@ async function sendCheckin(){
     origem: "github"
   };
 
-  console.log("ENVIANDO:", payload);
+  console.log("📦 PAYLOAD:", payload);
 
-  try{
+  try {
+
     const r = await fetch(API_BASE_URL,{
       method:"POST",
       headers:{
-        "Content-Type":"application/json"
+        "Content-Type":"text/plain;charset=utf-8"
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      redirect: "follow"
     });
 
-    const data = await r.json();
+    const txt = await r.text();
+
+    console.log("📡 STATUS:", r.status);
+    console.log("📡 RESPOSTA:", txt);
+
+    let data;
+    try{
+      data = JSON.parse(txt);
+    }catch{
+      throw new Error("Resposta não é JSON: " + txt);
+    }
 
     resp.className="resp";
     resp.classList.add(data.ok ? "success" : "error");
+    resp.textContent = data.msg || "Sem mensagem";
 
-    resp.textContent = data.msg;
-
-  }catch(e){
+  } catch (e) {
+    console.error("❌ ERRO:", e);
     resp.className="resp error";
-    resp.textContent="Erro ao conectar com o servidor";
+    resp.textContent = "Erro: " + e.message;
   }
 }
+
+//////////////////////////////////////////////////////
+// 🎯 ENTER ENVIA
+//////////////////////////////////////////////////////
+document.getElementById("id_driver").addEventListener("keydown", e=>{
+  if(e.key === "Enter") sendCheckin();
+});
 
 </script>
 
