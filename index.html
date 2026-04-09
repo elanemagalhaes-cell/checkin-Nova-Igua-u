@@ -4,7 +4,6 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Check-in HUB</title>
-
 <style>
 :root{
   --bg:#ffffff;
@@ -15,186 +14,133 @@
   --error:#dc2626;
 }
 *{box-sizing:border-box}
-body{
-  margin:0;
-  background:var(--bg);
-  font-family:system-ui;
-}
-.wrap{
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.card{
-  width:600px;
-  background:linear-gradient(180deg,var(--orange-1),var(--orange-2),var(--orange-3));
-  border-radius:30px;
-  padding:40px;
-  color:#fff;
-  text-align:center;
-}
-input{
-  width:100%;
-  padding:20px;
-  font-size:30px;
-  border-radius:20px;
-  border:0;
-  margin-bottom:20px;
-  text-align:center;
-}
-button{
-  width:100%;
-  padding:20px;
-  font-size:22px;
-  border-radius:20px;
-  border:0;
-  cursor:pointer;
-}
-.resp{
-  margin-top:20px;
-  font-size:20px;
-  white-space:pre-line;
-}
-.success{color:#16a34a;}
-.error{color:#dc2626;}
+body{margin:0;background:var(--bg);font-family:system-ui}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:min(600px,95vw);background:linear-gradient(180deg,var(--orange-1),var(--orange-2),var(--orange-3));border-radius:30px;padding:40px;color:#fff;text-align:center}
+input{width:100%;padding:20px;font-size:30px;border-radius:20px;border:0;margin-bottom:20px;text-align:center}
+button{width:100%;padding:20px;font-size:22px;border-radius:20px;border:0;cursor:pointer}
+.resp{margin-top:20px;font-size:20px;white-space:pre-line}
+.success{color:#16a34a}
+.error{color:#dc2626}
 </style>
 </head>
-
 <body>
-
 <div class="wrap">
   <div class="card">
     <h1>Check-in HUB</h1>
-
     <input id="id_driver" placeholder="Digite o ID" maxlength="7"/>
-
     <button onclick="sendCheckin()">Registrar</button>
-
     <div id="resp" class="resp"></div>
   </div>
 </div>
 
 <script>
-
-//////////////////////////////////////////////////////
-// 🔥 URL CORRETA (GOOGLEUSERCONTENT)
-//////////////////////////////////////////////////////
-const API_BASE_URL = "https://script.googleusercontent.com/a/macros/shopee.com/echo?user_content_key=AWDtjMWH21x2TqYA5VDaXlO8NZuN_qKJEMH-udS0gptGKGG1vg--mKw-KJq3UgE0xBvOGTj_JMotyAmPPXNRNYDJEgL7rETb0-Dh0kUfQr1yjse2ReiAo1W5JYxqIQDM8e9yTeApDX4WL2cSr7UbL7xsZPBd22LS_NSzIxYO--x6_LOsiUQ8ZPLMNZE0cJRVWsDxEA63R6H8rbRbp5Cbxq8eB_nJadnJ5jfMXZXk630xHcMMEAVjQ12GdMcjM5qDmqpQo8T-f3buel-FyyP5TFmF9o4p0hKWrah8pi_R5XqQ&lib=MiCWQ0ug8MyWhY52Ebfdc0sMngc_g7vfE";
+const API_BASE_URL = "https://script.google.com/a/macros/shopee.com/s/AKfycbynb3yJxQ7r9tmttiQqcfI3hUsoZHZP_Av6sItKPwLkk8if6PcRFF9OApljGNIvKmdi/exec";
 
 const $ = id => document.getElementById(id);
 
-//////////////////////////////////////////////////////
-// 🔑 DEVICE ID (FIXO NO CELULAR)
-//////////////////////////////////////////////////////
 function getDeviceId(){
   let v = localStorage.getItem("DEVICE_ID");
   if(!v){
-    v = Date.now() + "_" + Math.random();
+    v = Date.now() + "_" + Math.random().toString(16).slice(2);
     localStorage.setItem("DEVICE_ID", v);
   }
   return v;
 }
 
-//////////////////////////////////////////////////////
-// 📍 GPS
-//////////////////////////////////////////////////////
 async function getGeo(){
   return new Promise(res=>{
     if(!navigator.geolocation){
       return res({lat:null,lng:null,accuracy:null});
     }
-
     navigator.geolocation.getCurrentPosition(
       p=>res({
         lat:p.coords.latitude,
         lng:p.coords.longitude,
         accuracy:p.coords.accuracy
       }),
-      err=>res({
-        lat:null,
-        lng:null,
-        accuracy:null,
-        erro: err.message
-      }),
-      {enableHighAccuracy:true,timeout:10000}
+      ()=>res({lat:null,lng:null,accuracy:null}),
+      {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
     );
   });
 }
 
-//////////////////////////////////////////////////////
-// 🚀 ENVIO PRINCIPAL
-//////////////////////////////////////////////////////
+function jsonpRequest(url){
+  return new Promise((resolve, reject) => {
+    const cbName = "jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+    const script = document.createElement("script");
+
+    window[cbName] = function(data){
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup(){
+      try { delete window[cbName]; } catch(_) {}
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    script.onerror = function(){
+      cleanup();
+      reject(new Error("Falha ao carregar o script remoto."));
+    };
+
+    script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cbName;
+    document.body.appendChild(script);
+
+    setTimeout(() => {
+      if (window[cbName]) {
+        cleanup();
+        reject(new Error("Tempo de resposta excedido."));
+      }
+    }, 15000);
+  });
+}
+
 async function sendCheckin(){
   const resp = $("resp");
-  resp.className="resp";
-  resp.textContent="Enviando...";
+  resp.className = "resp";
+  resp.textContent = "Enviando...";
 
   const id_driver = $("id_driver").value.trim();
 
   if(!id_driver){
     resp.classList.add("error");
-    resp.textContent="Informe o ID";
+    resp.textContent = "Informe o ID";
     return;
   }
 
   const geo = await getGeo();
 
-  const payload = {
-    id_driver,
-    lat: geo.lat,
-    lng: geo.lng,
-    accuracy: geo.accuracy,
+  const params = new URLSearchParams({
+    action: "register",
+    id_driver: id_driver,
+    lat: geo.lat ?? "",
+    lng: geo.lng ?? "",
+    accuracy: geo.accuracy ?? "",
     device_id: getDeviceId(),
     ua: navigator.userAgent,
     device_ts: new Date().toISOString(),
     origem: "github"
-  };
+  });
 
-  console.log("📦 PAYLOAD:", payload);
+  const url = API_BASE_URL + (API_BASE_URL.includes("?") ? "&" : "?") + params.toString();
 
   try {
+    const data = await jsonpRequest(url);
 
-    const r = await fetch(API_BASE_URL,{
-      method:"POST",
-      headers:{
-        "Content-Type":"text/plain;charset=utf-8"
-      },
-      body: JSON.stringify(payload),
-      redirect: "follow"
-    });
-
-    const txt = await r.text();
-
-    console.log("📡 STATUS:", r.status);
-    console.log("📡 RESPOSTA:", txt);
-
-    let data;
-    try{
-      data = JSON.parse(txt);
-    }catch{
-      throw new Error("Resposta não é JSON: " + txt);
-    }
-
-    resp.className="resp";
-    resp.classList.add(data.ok ? "success" : "error");
-    resp.textContent = data.msg || "Sem mensagem";
-
+    resp.className = "resp";
+    resp.classList.add(data && data.ok ? "success" : "error");
+    resp.textContent = data && data.msg ? data.msg : "Sem resposta do servidor.";
   } catch (e) {
-    console.error("❌ ERRO:", e);
-    resp.className="resp error";
-    resp.textContent = "Erro: " + e.message;
+    resp.className = "resp error";
+    resp.textContent = "Erro ao conectar ao servidor: " + e.message;
   }
 }
 
-//////////////////////////////////////////////////////
-// 🎯 ENTER ENVIA
-//////////////////////////////////////////////////////
-document.getElementById("id_driver").addEventListener("keydown", e=>{
-  if(e.key === "Enter") sendCheckin();
+document.getElementById("id_driver").addEventListener("keydown", e => {
+  if (e.key === "Enter") sendCheckin();
 });
-
 </script>
-
 </body>
 </html>
