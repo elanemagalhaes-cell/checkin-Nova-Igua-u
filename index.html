@@ -1,351 +1,161 @@
-/*************************************************
- * CHECK-IN HUB — Code.gs (SHEETS + APPS SCRIPT)
- * Front no GitHub
- * Backend no Apps Script Web App
- * Gravação em Google Sheets
- *************************************************/
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Check-in HUB</title>
 
-/************* CONFIG GERAL *************/
-const CFG = {
-  FUSO: "America/Sao_Paulo",
-  LAT_BASE: -22.74233,
-  LNG_BASE: -43.53921,
-  RAIO_KM: 0.5,
+<style>
+:root{
+  --bg:#ffffff;
+  --orange-1:#ff8a1e;
+  --orange-2:#ff6a00;
+  --orange-3:#ff4d00;
+  --success:#16a34a;
+  --error:#dc2626;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  font-family:system-ui;
+}
+.wrap{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.card{
+  width:600px;
+  background:linear-gradient(180deg,var(--orange-1),var(--orange-2),var(--orange-3));
+  border-radius:30px;
+  padding:40px;
+  color:#fff;
+  text-align:center;
+}
+input{
+  width:100%;
+  padding:20px;
+  font-size:30px;
+  border-radius:20px;
+  border:0;
+  margin-bottom:20px;
+  text-align:center;
+}
+button{
+  width:100%;
+  padding:20px;
+  font-size:22px;
+  border-radius:20px;
+  border:0;
+  cursor:pointer;
+}
+.resp{
+  margin-top:20px;
+  font-size:20px;
+  white-space:pre-line;
+}
+.success{color:#16a34a;}
+.error{color:#dc2626;}
+</style>
+</head>
 
-  EXIGIR_GPS: true,
-  MAX_ACCURACY_M: 200,
+<body>
 
-  ONCE_PER_DAY: true,
-  LOCK_DEVICE_TO_ID_TODAY: true,
+<div class="wrap">
+  <div class="card">
+    <h1>Check-in HUB</h1>
 
-  // PLANILHA DESTINO
-  SPREADSHEET_ID: "https://docs.google.com/spreadsheets/d/1TqiaR-EC__tgkw96SbJzBx5lPfRYsWQ5mqlFG2omBJc/edit?gid=0#gid=0",
-  ABA_DADOS: "checkins"
-};
+    <input id="id_driver" placeholder="Digite o ID" maxlength="7"/>
 
-/************* PLANILHA *************/
-function sh_() {
-  const ss = SpreadsheetApp.openById(CFG.SPREADSHEET_ID);
-  let sh = ss.getSheetByName(CFG.ABA_DADOS);
+    <button onclick="sendCheckin()">Registrar</button>
 
-  if (!sh) {
-    sh = ss.insertSheet(CFG.ABA_DADOS);
+    <div id="resp" class="resp"></div>
+  </div>
+</div>
+
+<script>
+
+// 🔥 SUA URL JÁ CONFIGURADA
+const API_BASE_URL = "https://script.google.com/a/macros/shopee.com/s/AKfycbynb3yJxQ7r9tmttiQqcfI3hUsoZHZP_Av6sItKPwLkk8if6PcRFF9OApljGNIvKmdi/exec";
+
+const $ = id => document.getElementById(id);
+
+function getDeviceId(){
+  let v = localStorage.getItem("DEVICE_ID");
+  if(!v){
+    v = Date.now() + "_" + Math.random();
+    localStorage.setItem("DEVICE_ID", v);
   }
-
-  ensureHeader_(sh);
-  return sh;
+  return v;
 }
 
-function ensureHeader_(sh) {
-  const headers = [
-    "id",
-    "driver_id",
-    "ts",
-    "lat",
-    "lon",
-    "accuracy_m",
-    "device_id",
-    "ua",
-    "origem",
-    "data_local",
-    "hora_local"
-  ];
-
-  const firstRow = sh.getRange(1, 1, 1, headers.length).getValues()[0];
-  const vazio = firstRow.every(v => String(v || "").trim() === "");
-
-  if (vazio) {
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sh.setFrozenRows(1);
-  }
-}
-
-/************* UTILS *************/
-function norm_(v) {
-  return String(v == null ? "" : v).trim();
-}
-
-function fmt_(d, f) {
-  return Utilities.formatDate(d, CFG.FUSO, f);
-}
-
-function json_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function out_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function haversineKm_(lat1, lon1, lat2, lon2) {
-  const parse = x => (typeof x === "string" ? Number(x) : x);
-  lat1 = parse(lat1);
-  lon1 = parse(lon1);
-  lat2 = parse(lat2);
-  lon2 = parse(lon2);
-
-  const R = 6371;
-  const toRad = x => x * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      (Math.sin(dLon / 2) ** 2);
-
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function parseDeviceTs_(device_ts_raw) {
-  const raw = norm_(device_ts_raw);
-  if (!raw) throw new Error("Falha no timestamp do dispositivo (device_ts ausente).");
-
-  const isoLike = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:\d{2})$/;
-  if (!isoLike.test(raw)) {
-    throw new Error("device_ts inválido. Envie ISO 8601 (ex: 2026-02-16T14:00:12.123456Z).");
-  }
-
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) {
-    throw new Error("device_ts inválido (Date parse falhou).");
-  }
-
-  return { iso_raw: raw, date_ms: d };
-}
-
-function toMinuteKey_(dateObj) {
-  return Utilities.formatDate(dateObj, "UTC", "yyyy-MM-dd'T'HH:mm");
-}
-
-function getRowsData_() {
-  const sh = sh_();
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-
-  if (lastRow < 2) return [];
-
-  const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  return values.map((r, i) => ({
-    rowNumber: i + 2,
-    id: r[0],
-    driver_id: r[1],
-    ts: r[2],
-    lat: r[3],
-    lon: r[4],
-    accuracy_m: r[5],
-    device_id: r[6],
-    ua: r[7],
-    origem: r[8],
-    data_local: r[9],
-    hora_local: r[10]
-  }));
-}
-
-function todayLocal_() {
-  return fmt_(new Date(), "yyyy-MM-dd");
-}
-
-function sameLocalDay_(dateObj, yyyyMmDd) {
-  return fmt_(dateObj, "yyyy-MM-dd") === yyyyMmDd;
-}
-
-/************* REGRAS *************/
-function assertOncePerDay_(id_driver) {
-  if (!CFG.ONCE_PER_DAY) return;
-
-  const hoje = todayLocal_();
-  const rows = getRowsData_();
-
-  const jaExiste = rows.some(r => {
-    if (norm_(r.driver_id) !== norm_(id_driver)) return false;
-    const d = new Date(r.ts);
-    if (isNaN(d.getTime())) return false;
-    return sameLocalDay_(d, hoje);
+async function getGeo(){
+  return new Promise(res=>{
+    navigator.geolocation.getCurrentPosition(
+      p=>res({
+        lat:p.coords.latitude,
+        lng:p.coords.longitude,
+        accuracy:p.coords.accuracy
+      }),
+      ()=>res({lat:null,lng:null,accuracy:null}),
+      {enableHighAccuracy:true}
+    );
   });
+}
 
-  if (jaExiste) {
-    throw new Error(`ID ${id_driver} já registrou hoje. (um check-in por dia)`);
+async function sendCheckin(){
+  const resp = $("resp");
+  resp.className="resp";
+  resp.textContent="Enviando...";
+
+  const id_driver = $("id_driver").value.trim();
+
+  if(!id_driver){
+    resp.classList.add("error");
+    resp.textContent="Informe o ID";
+    return;
   }
-}
 
-function assertDeviceForToday_(device_id, id_driver) {
-  if (!CFG.LOCK_DEVICE_TO_ID_TODAY) return;
+  const geo = await getGeo();
 
-  const hoje = todayLocal_();
-  const rows = getRowsData_();
+  const payload = {
+    id_driver,
+    lat: geo.lat,
+    lng: geo.lng,
+    accuracy: geo.accuracy,
+    device_id: getDeviceId(),
+    ua: navigator.userAgent,
+    device_ts: new Date().toISOString(),
+    origem: "github"
+  };
 
-  const encontrados = rows
-    .filter(r => norm_(r.device_id) === norm_(device_id))
-    .filter(r => {
-      const d = new Date(r.ts);
-      if (isNaN(d.getTime())) return false;
-      return sameLocalDay_(d, hoje);
-    })
-    .sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  console.log("ENVIANDO:", payload);
 
-  if (encontrados.length) {
-    const last = encontrados[0];
-    if (norm_(last.driver_id) && norm_(last.driver_id) !== norm_(id_driver)) {
-      throw new Error(`Este aparelho já registrou hoje para o ID ${last.driver_id}. (um ID por aparelho/dia)`);
-    }
-  }
-}
-
-function assertUniqueMinute_(id_driver, deviceDateMs_) {
-  const alvo = toMinuteKey_(deviceDateMs_);
-  const rows = getRowsData_();
-
-  const duplicado = rows.some(r => {
-    if (norm_(r.driver_id) !== norm_(id_driver)) return false;
-    const d = new Date(r.ts);
-    if (isNaN(d.getTime())) return false;
-    return toMinuteKey_(d) === alvo;
-  });
-
-  if (duplicado) {
-    throw new Error(`Duplicado no mesmo minuto para o ID ${id_driver}.`);
-  }
-}
-
-/************* INSERT *************/
-function nextId_() {
-  return Utilities.getUuid();
-}
-
-function saveCheckin_(row) {
-  const sh = sh_();
-  sh.appendRow([
-    row.id,
-    row.driver_id,
-    row.ts,
-    row.lat,
-    row.lon,
-    row.accuracy_m,
-    row.device_id,
-    row.ua,
-    row.origem,
-    row.data_local,
-    row.hora_local
-  ]);
-}
-
-/************* BACKEND PRINCIPAL *************/
-function registerCheckin(payload) {
-  try {
-    const id_driver = norm_(payload && payload.id_driver);
-
-    const lat = (payload && payload.lat != null && payload.lat !== "") ? Number(payload.lat) : null;
-    const lng = (payload && payload.lng != null && payload.lng !== "") ? Number(payload.lng) : null;
-    const accuracy = (payload && payload.accuracy != null && payload.accuracy !== "") ? Number(payload.accuracy) : null;
-
-    const device_id = norm_(payload && payload.device_id);
-    const ua_raw = norm_(payload && payload.ua);
-    const origem = norm_(payload && payload.origem) || "github";
-    const device_ts = norm_(payload && payload.device_ts);
-
-    if (!id_driver) return { ok: false, msg: "Informe o ID do motorista." };
-
-    if (!ua_raw) {
-      return { ok: false, msg: "❌ Bloqueado: User-Agent ausente (ua)." };
-    }
-
-    if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) {
-      return { ok: false, msg: "❌ Bloqueado: sem GPS (lat/lon ausentes). Ative o GPS e permita localização!" };
-    }
-
-    if (CFG.EXIGIR_GPS && (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng))) {
-      return { ok: false, msg: "❌ ATIVE GPS e PERMITA localização para registrar!" };
-    }
-
-    if (accuracy != null && !Number.isNaN(accuracy) && accuracy > CFG.MAX_ACCURACY_M) {
-      return { ok: false, msg: `❌ GPS impreciso (${Math.round(accuracy)} m). Vá para área aberta e tente novamente.` };
-    }
-
-    if (!device_id) {
-      return { ok: false, msg: "Falha ao identificar o dispositivo. Atualize a página e tente novamente." };
-    }
-
-    const parsed = parseDeviceTs_(device_ts);
-
-    assertOncePerDay_(id_driver);
-    assertDeviceForToday_(device_id, id_driver);
-    assertUniqueMinute_(id_driver, parsed.date_ms);
-
-    const dist_km = haversineKm_(lat, lng, CFG.LAT_BASE, CFG.LNG_BASE);
-
-    if (dist_km > CFG.RAIO_KM) {
-      return { ok: false, msg: `❌ Fora do perímetro: ${dist_km.toFixed(3)} km (> ${CFG.RAIO_KM} km)` };
-    }
-
-    saveCheckin_({
-      id: nextId_(),
-      driver_id: id_driver,
-      ts: parsed.iso_raw,
-      lat: Number(lat),
-      lon: Number(lng),
-      accuracy_m: (accuracy != null && !Number.isNaN(accuracy)) ? Number(accuracy) : null,
-      device_id: device_id,
-      ua: ua_raw.length > 500 ? ua_raw.slice(0, 500) : ua_raw,
-      origem: origem,
-      data_local: fmt_(parsed.date_ms, "dd/MM/yyyy"),
-      hora_local: fmt_(parsed.date_ms, "HH:mm:ss")
+  try{
+    const r = await fetch(API_BASE_URL,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify(payload)
     });
 
-    return {
-      ok: true,
-      msg: "✅ Check-in realizado com sucesso!",
-      geofence_status: "DENTRO_RAIO",
-      dist_km: Number(dist_km.toFixed(3)),
-      debug_ts_used: parsed.iso_raw
-    };
+    const data = await r.json();
 
-  } catch (e) {
-    return { ok: false, msg: String(e && e.message ? e.message : e) };
+    resp.className="resp";
+    resp.classList.add(data.ok ? "success" : "error");
+
+    resp.textContent = data.msg;
+
+  }catch(e){
+    resp.className="resp error";
+    resp.textContent="Erro ao conectar com o servidor";
   }
 }
 
-/************* WEB APP *************/
-function doPost(e) {
-  try {
-    let p = {};
+</script>
 
-    if (e && e.postData && e.postData.contents) {
-      p = JSON.parse(e.postData.contents || "{}");
-    } else if (e && e.parameter) {
-      p = e.parameter;
-    }
-
-    const payload = {
-      id_driver: p.id || p.driver_id || "",
-      lat: (p.lat != null ? p.lat : (p.latitude != null ? p.latitude : null)),
-      lng: (p.lng != null ? p.lng : (p.lon != null ? p.lon : (p.longitude != null ? p.longitude : null))),
-      accuracy: (p.accuracy != null ? p.accuracy : (p.acc != null ? p.acc : null)),
-      device_id: p.device_id || "",
-      ua: p.ua || "",
-      device_ts: p.device_ts || "",
-      origem: p.origem || "github"
-    };
-
-    const resp = registerCheckin(payload);
-    return out_(resp);
-
-  } catch (err) {
-    return out_({
-      ok: false,
-      msg: "Erro ao processar a requisição: " + (err && err.message ? err.message : err)
-    });
-  }
-}
-
-function doGet() {
-  return out_({
-    ok: true,
-    msg: "API Check-in HUB online."
-  });
-}
+</body>
+</html>
