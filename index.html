@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Check-in HUB</title>
+
 <style>
 :root{
   --bg:#ffffff;
@@ -14,36 +15,173 @@
   --error:#dc2626;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);font-family:system-ui}
-.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{width:min(600px,95vw);background:linear-gradient(180deg,var(--orange-1),var(--orange-2),var(--orange-3));border-radius:30px;padding:40px;color:#fff;text-align:center}
-input{width:100%;padding:20px;font-size:30px;border-radius:20px;border:0;margin-bottom:20px;text-align:center}
-button{width:100%;padding:20px;font-size:22px;border-radius:20px;border:0;cursor:pointer}
-.resp{margin-top:20px;font-size:20px;white-space:pre-line}
-.success{color:#16a34a}
-.error{color:#dc2626}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+}
+.wrap{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.card{
+  width:min(650px,95vw);
+  min-height:55vh;
+  background:linear-gradient(180deg,var(--orange-1),var(--orange-2) 50%,var(--orange-3));
+  border-radius:32px;
+  padding:50px 40px;
+  box-shadow:0 30px 60px rgba(0,0,0,.25);
+  color:#fff;
+  text-align:center;
+}
+.title{
+  font-size:42px;
+  font-weight:900;
+  margin-bottom:12px;
+}
+.subtitle{
+  font-size:20px;
+  margin-bottom:40px;
+  opacity:.95;
+}
+.label{
+  font-size:20px;
+  font-weight:800;
+  text-align:left;
+  margin-bottom:10px;
+}
+input{
+  width:100%;
+  padding:30px 18px;
+  font-size:44px;
+  font-weight:900;
+  border-radius:26px;
+  border:0;
+  outline:none;
+  margin-bottom:18px;
+  background: linear-gradient(180deg, #f3f4f6 0%, #ffffff 55%, #eef2f7 100%);
+  color:#0f172a;
+  text-align:center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0px;
+  caret-color:#111827;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.65), rgba(255,255,255,0)),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc((100% / 7) - 2px),
+      rgba(15,23,42,.18) calc((100% / 7) - 2px),
+      rgba(15,23,42,.18) calc((100% / 7))
+    );
+  box-shadow:
+    0 22px 50px rgba(0,0,0,.26),
+    inset 0 2px 10px rgba(15,23,42,.08),
+    inset 0 -3px 10px rgba(15,23,42,.06);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+input::placeholder{
+  color: rgba(15,23,42,.35);
+  font-weight:800;
+}
+.pulse{
+  transform: scale(1.02);
+  box-shadow:
+    0 28px 60px rgba(0,0,0,.34),
+    inset 0 2px 12px rgba(15,23,42,.10),
+    inset 0 -3px 12px rgba(15,23,42,.08);
+}
+.hint{
+  font-size:18px;
+  text-align:left;
+  margin-bottom:30px;
+  opacity:.9;
+}
+button{
+  width:100%;
+  padding:26px 18px;
+  font-size:28px;
+  font-weight:950;
+  border-radius:26px;
+  border:1px solid rgba(15,23,42,.18);
+  cursor:pointer;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7fb 55%, #eef2f7 100%);
+  color:#0f172a;
+  box-shadow:
+    0 18px 0 rgba(0,0,0,.18),
+    0 32px 60px rgba(0,0,0,.22),
+    inset 0 2px 0 rgba(255,255,255,.95),
+    inset 0 -6px 10px rgba(15,23,42,.10);
+  transition: transform .08s ease, box-shadow .08s ease, filter .12s ease;
+}
+button:active{
+  transform: translateY(4px);
+}
+button:disabled{
+  cursor:not-allowed;
+  opacity:.7;
+  filter: grayscale(.2);
+  transform:none;
+}
+.resp{
+  margin-top:30px;
+  font-size:24px;
+  font-weight:900;
+  min-height:30px;
+  white-space:pre-line;
+}
+.success{ color:var(--success); }
+.error{ color:var(--error); }
+.watermark{
+  position:fixed;
+  left:15px;
+  bottom:12px;
+  font-size:12px;
+  font-weight:900;
+  color:#ff6a00;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  user-select:none;
+}
 </style>
 </head>
+
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>Check-in HUB</h1>
-    <input id="id_driver" placeholder="Digite o ID" maxlength="7"/>
-    <button onclick="sendCheckin()">Registrar</button>
+    <div class="title">Check-in HUB</div>
+    <div class="subtitle">Acesse, registre e garanta seu lugar na fila.</div>
+
+    <div class="label">ID do motorista</div>
+    <input id="id_driver" maxlength="7" inputmode="numeric" placeholder="0000000"/>
+
+    <div class="hint">Dica: cole o ID e pressione Enter.</div>
+
+    <button id="btnRegistrar" onclick="sendCheckin()">Registrar agora</button>
+
     <div id="resp" class="resp"></div>
   </div>
 </div>
 
+<div class="watermark">
+PROJETO: ELANE NASCIMENTO • SINCE AGO 2025 • SHOPEE.
+</div>
+
 <script>
-const API_BASE_URL = "https://script.google.com/a/macros/shopee.com/s/AKfycbynb3yJxQ7r9tmttiQqcfI3hUsoZHZP_Av6sItKPwLkk8if6PcRFF9OApljGNIvKmdi/exec";
+const API_BASE_URL = "https://script.google.com/macros/s/AKfycbynb3yJxQ7r9tmttiQqcfI3hUsoZHZP_Av6sItKPwLkk8if6PcRFF9OApljGNIvKmdi/exec";
 
 const $ = id => document.getElementById(id);
 
 function getDeviceId(){
-  let v = localStorage.getItem("DEVICE_ID");
+  const k = "CHK_DEVICE_ID_V1";
+  let v = localStorage.getItem(k);
   if(!v){
-    v = Date.now() + "_" + Math.random().toString(16).slice(2);
-    localStorage.setItem("DEVICE_ID", v);
+    v = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + "_" + Math.random().toString(16).slice(2));
+    localStorage.setItem(k, v);
   }
   return v;
 }
@@ -53,6 +191,7 @@ async function getGeo(){
     if(!navigator.geolocation){
       return res({lat:null,lng:null,accuracy:null});
     }
+
     navigator.geolocation.getCurrentPosition(
       p=>res({
         lat:p.coords.latitude,
@@ -60,86 +199,114 @@ async function getGeo(){
         accuracy:p.coords.accuracy
       }),
       ()=>res({lat:null,lng:null,accuracy:null}),
-      {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+      {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
     );
   });
 }
 
 function jsonpRequest(url){
   return new Promise((resolve, reject) => {
-    const cbName = "jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+    const cbName = "jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
     const script = document.createElement("script");
-
-    window[cbName] = function(data){
-      cleanup();
-      resolve(data);
-    };
+    let finalizado = false;
 
     function cleanup(){
+      finalizado = true;
       try { delete window[cbName]; } catch(_) {}
       if (script.parentNode) script.parentNode.removeChild(script);
     }
 
+    window[cbName] = function(data){
+      if (finalizado) return;
+      cleanup();
+      resolve(data);
+    };
+
     script.onerror = function(){
+      if (finalizado) return;
       cleanup();
       reject(new Error("Falha ao carregar o script remoto."));
     };
 
-    script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cbName;
+    script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + encodeURIComponent(cbName);
     document.body.appendChild(script);
 
     setTimeout(() => {
-      if (window[cbName]) {
-        cleanup();
-        reject(new Error("Tempo de resposta excedido."));
-      }
+      if (finalizado) return;
+      cleanup();
+      reject(new Error("Tempo de resposta excedido."));
     }, 15000);
   });
 }
 
 async function sendCheckin(){
   const resp = $("resp");
+  const btn = $("btnRegistrar");
+
   resp.className = "resp";
   resp.textContent = "Enviando...";
-
-  const id_driver = $("id_driver").value.trim();
-
-  if(!id_driver){
-    resp.classList.add("error");
-    resp.textContent = "Informe o ID";
-    return;
-  }
-
-  const geo = await getGeo();
-
-  const params = new URLSearchParams({
-    action: "register",
-    id_driver: id_driver,
-    lat: geo.lat ?? "",
-    lng: geo.lng ?? "",
-    accuracy: geo.accuracy ?? "",
-    device_id: getDeviceId(),
-    ua: navigator.userAgent,
-    device_ts: new Date().toISOString(),
-    origem: "github"
-  });
-
-  const url = API_BASE_URL + (API_BASE_URL.includes("?") ? "&" : "?") + params.toString();
+  btn.disabled = true;
 
   try {
+    const id_driver = ($("id_driver").value || "").trim();
+
+    if(!id_driver){
+      resp.classList.add("error");
+      resp.textContent = "Informe o ID";
+      btn.disabled = false;
+      return;
+    }
+
+    const geo = await getGeo();
+
+    const params = new URLSearchParams({
+      action: "register",
+      id_driver: id_driver,
+      lat: geo.lat ?? "",
+      lng: geo.lng ?? "",
+      accuracy: geo.accuracy ?? "",
+      device_id: getDeviceId(),
+      ua: navigator.userAgent,
+      device_ts: new Date().toISOString(),
+      origem: "github"
+    });
+
+    const url = API_BASE_URL + "?" + params.toString();
+    console.log("URL JSONP:", url);
+
     const data = await jsonpRequest(url);
 
     resp.className = "resp";
     resp.classList.add(data && data.ok ? "success" : "error");
     resp.textContent = data && data.msg ? data.msg : "Sem resposta do servidor.";
   } catch (e) {
+    console.error(e);
     resp.className = "resp error";
     resp.textContent = "Erro ao conectar ao servidor: " + e.message;
+  } finally {
+    btn.disabled = false;
   }
 }
 
-document.getElementById("id_driver").addEventListener("keydown", e => {
-  if (e.key === "Enter") sendCheckin();
+document.addEventListener("DOMContentLoaded", ()=>{
+  const inp = $("id_driver");
+  if(!inp) return;
+
+  const pulse = () => {
+    inp.classList.add("pulse");
+    clearTimeout(inp._pulseTimer);
+    inp._pulseTimer = setTimeout(()=>inp.classList.remove("pulse"), 120);
+  };
+
+  inp.addEventListener("input", ()=>{
+    const clean = (inp.value || "").replace(/\D+/g, "").slice(0, 7);
+    if (inp.value !== clean) inp.value = clean;
+    pulse();
+  });
+
+  inp.addEventListener("keydown", (ev)=>{
+    if(ev.key === "Enter") sendCheckin();
+  });
 });
 </script>
 </body>
